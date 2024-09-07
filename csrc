@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import argparse
+import subprocess
+import json
+
+BINARY_NAME = "csrc"
+
+
+def ValidateCsrcFile(srcs):
+    err = False
+    for file in srcs:
+        if not os.path.isfile(file):
+            err = True
+            print(f"{BINARY_NAME}: {file}: file doesn't exist")
+
+        if not file.endswith(".c") and not file.endswith(".cpp"):
+            err = True
+            print(f"{BINARY_NAME}: {file}: file format not recongnized;")
+            print(f"{BINARY_NAME}: {file}: provide a valid '.c' or '.cpp' file")
+
+    return err
+
+
+def PrintFile(file, start, end):
+    with open(file) as fp:
+        gate = False
+        for i, line in enumerate(fp):
+            if i == start - 1:
+                gate = True
+            if gate:
+                print(line, end="")
+            if i == end - 1:
+                break
+
+
+def Check(fnc, jsonstr):
+    output = json.loads(jsonstr)
+
+    if output["name"] == fnc:
+        PrintFile(output["path"], output["line"], output["end"])
+
+
+def FindFncDef(fnc, src):
+    cmd = ["ctags", "--fields=+ne", "--sort=no", "--c-types=f", "--output-format=json"]
+    cmd.extend(src)
+
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+
+    for line in proc.stdout:
+        Check(fnc, line)
+
+
+def PrintHelp():
+    help_msg = f"""Usage: {BINARY_NAME} [function] [source files...]"""
+    print(help_msg)
+
+
+if __name__ == "__main__":
+    args = sys.argv
+    fnc = None
+    src = []
+
+    if len(args) < 3:
+        PrintHelp()
+        sys.exit(1)
+
+    fnc = args[1]
+    for arg in args[2:]:
+        src.append(arg)
+
+    if ValidateCsrcFile(src):
+        sys.exit(1)
+
+    FindFncDef(fnc, src)
